@@ -1,6 +1,7 @@
 CompileFlags:
   Add: ["-I/usr/include/c++/12/",
-        "-I//usr/local/modsecurity/include",
+        "-I/usr/local/modsecurity/include",
+        "-I/config/workspace/hibot/contrib/include/",
         "-I/usr/include/c++/12/x86_64-TencentOS-linux/",
         "-I/config/workspace/hibot/thirty_lib/mysql-connector-c++-8.3.0-linux-glibc2.28-x86-64bit/include", 
         "-I/usr/local/miniconda3/lib/python3.10/site-packages/pybind11/include"]

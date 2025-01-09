@@ -23,6 +23,12 @@ make install
 
 ```
 
+## build 2024.12.12 
+>  g++ ./httplib_waf.cpp -I ../contrib/include/  -I /usr/local/modsecurity/include/ -L /usr/local/modsecurity/lib/ -std=c++11  -lpthread -std=c++17 -lmodsecurity -O3 -g 
+
+我们用 httplib-cpp 是可以的； 但是使用 workflow就不行了。
+
+
 ## build 2025.1.1  ERROR 
 
 >  g++ ./main.cpp -I /usr/local/modsecurity/include/ -L /usr/local/modsecurity/lib/ -lworkflow -std=c++11  -lpthread -std=c++17 -lmodsecurity -O3 -g 
