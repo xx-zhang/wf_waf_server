@@ -33,6 +33,9 @@ int main() {
         // 处理请求体
         transaction.appendRequestBody((const unsigned char *)req.body.c_str(), req.body.size());
 
+        res.set_header("Connection", "close");
+        res.set_header("Accept", "*/*");
+
         // 执行请求检测
         if (transaction.processRequestHeaders() != 0 || transaction.processRequestBody() != 0) {
             // 如果检测到攻击，返回阻断响应
