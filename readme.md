@@ -26,17 +26,17 @@ make install
 
 我们用 httplib-cpp 是可以的； 但是使用 workflow就不行了。
 
-## build 2024.12.24 transcation非独立事务时OK 
+## build 2024.12.24 transcation非独立事务时OK 【RECOMENDED】
 >  g++ ./wf_waf.cpp -I /usr/local/modsecurity/include/ -L /usr/local/modsecurity/lib/ -lworkflow -lpthread -std=c++17 -lmodsecurity -O3 -g -o a.elf 
 
-
-## build 2025.1.1  ERROR [workflow]
-- 把 transcation 作为独立事务拿出来时候就不能OK了。 
-
->  g++ ./main.cpp -I /usr/local/modsecurity/include/ -L /usr/local/modsecurity/lib/ -lworkflow -lpthread -std=c++17 -lmodsecurity -O3 -g 
+![](./dcos/images/image.png)
 
 
 # BUG
-## bug 2025.1.6 
+## bug 2025.1.6  --- fix
 - 当前遇到问题 modsecurity parse all http error.
+
+## bug 2025.1.7
+- 需要遇到了match - 就进行响应； 另外手动进行过滤一些； 无法脱离log做到这个内容。
+
 
