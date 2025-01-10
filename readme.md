@@ -21,8 +21,8 @@ make install
 
 ```
 
-## build 2024.12.12 
->  g++ ./httplib_waf.cpp -I ../contrib/include/  -I /usr/local/modsecurity/include/ -L /usr/local/modsecurity/lib/ -std=c++11  -lpthread -std=c++17 -lmodsecurity -O3 -g 
+## build 2024.12.12 with httplib 
+>  g++ ./src/httplib_waf.cpp -I /usr/local/modsecurity/include/ -L /usr/local/modsecurity/lib/ -lpthread -std=c++17 -lmodsecurity -O3 -g -o a.elf -I ./contrib/include/
 
 我们用 httplib-cpp 是可以的； 但是使用 workflow就不行了。
 
@@ -33,7 +33,7 @@ make install
 ## build 2025.1.1  ERROR [workflow]
 - 把 transcation 作为独立事务拿出来时候就不能OK了。 
 
->  g++ ./main.cpp -I /usr/local/modsecurity/include/ -L /usr/local/modsecurity/lib/ -lworkflow -std=c++11  -lpthread -std=c++17 -lmodsecurity -O3 -g 
+>  g++ ./main.cpp -I /usr/local/modsecurity/include/ -L /usr/local/modsecurity/lib/ -lworkflow -lpthread -std=c++17 -lmodsecurity -O3 -g 
 
 
 # BUG

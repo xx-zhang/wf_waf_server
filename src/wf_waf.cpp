@@ -21,9 +21,7 @@
 void process_request(WFHttpTask *task, modsecurity::ModSecurity *modsec, modsecurity::RulesSet *rules) {
     auto *req = task->get_req();
     auto *resp = task->get_resp();
-
-    // using modsecurity::RuleMessage; 
-
+    
     // 创建 ModSecurity 事务
     modsecurity::Transaction transaction(modsec, rules, nullptr);
 
@@ -44,12 +42,11 @@ void process_request(WFHttpTask *task, modsecurity::ModSecurity *modsec, modsecu
     // 执行请求检测
     auto t_header = transaction.processRequestHeaders(); 
 
-    if ( transaction.processRequestBody() != 0) {
+    if ( transaction.processRequestBody() != 0 || transaction.processRequestHeaders() != 0) {
         auto x = transaction.m_id; 
-        std::cout << x << "-" << transaction.processRequestHeaders() << "-" << t_header << std::endl; 
 
-        resp->set_status_code("403");
-        resp->append_output_body("Request blocked by ModSecurity");
+        resp->set_status_code("625");
+        resp->append_output_body(transaction.getResponseBody());
     } else {
         // 如果没有命中规则，返回 200 OK
         resp->set_status_code("200");
