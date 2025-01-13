@@ -32,11 +32,12 @@ make install
 ![](./dcos/images/image.png)
 
 
-# BUG
-## bug 2025.1.6  --- fix
+# BUG AND REPAIRE LOG
+## bug 2025.1.6  --- fix (1.6)
 - 当前遇到问题 modsecurity parse all http error.
 
-## bug 2025.1.7
+## bug 2025.1.7 --- fix (1.10)
 - 需要遇到了match - 就进行响应； 另外手动进行过滤一些； 无法脱离log做到这个内容。
+    - 已解决，这里操作 transcation 对象专门有一个阻断器，intervention 这样就可以达到这个效果，【已解决】
 
 
