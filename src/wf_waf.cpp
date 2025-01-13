@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <string>
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -19,10 +20,50 @@
 #include <modsecurity/rules_set.h>
 #include <modsecurity/transaction.h>
 
+
+
+int process_intervention(modsecurity::Transaction *transaction) {
+    modsecurity::ModSecurityIntervention intervention;
+    intervention.status = 200;
+    intervention.url = NULL;
+    intervention.log = NULL;
+    intervention.disruptive = 0;
+
+    if (msc_intervention(transaction, &intervention) == 0) {
+        return 0;
+    }
+
+    if (intervention.log == NULL) {
+        intervention.log = strdup("(no log message was specified)");
+    }
+
+    std::cout << "Log: " << intervention.log << std::endl;
+    free(intervention.log);
+    intervention.log = NULL;
+
+    if (intervention.url != NULL) {
+        std::cout << "Intervention, redirect to: " << intervention.url;
+        std::cout << " with status code: " << intervention.status << std::endl;
+        free(intervention.url);
+        intervention.url = NULL;
+        return intervention.status;
+    }
+
+    if (intervention.status != 200) {
+        std::cout << "Intervention, returning code: " << intervention.status;
+        std::cout << std::endl;
+        return intervention.status;
+    }
+
+    return 0;
+}
+
+
 void process_request(WFHttpTask *task, modsecurity::ModSecurity *modsec, modsecurity::RulesSet *rules) {
     auto *req = task->get_req();
     auto *resp = task->get_resp();
     
+    int intervention_status; 
     // 创建 ModSecurity 事务
     auto modsecTransaction = std::make_unique<modsecurity::Transaction>(modsec, rules, nullptr);
     modsecTransaction->processURI(req->get_request_uri(), req->get_method(), "1.1");
@@ -34,8 +75,9 @@ void process_request(WFHttpTask *task, modsecurity::ModSecurity *modsec, modsecu
     while (cursor.next(header_name, header_value)) {
         // std::cout << header_name.c_str() << ":" << header_value.c_str() << std::endl; 
         modsecTransaction->addRequestHeader(header_name.c_str(), header_value.c_str());
-    }
+    } 
     modsecTransaction->processRequestHeaders();
+    intervention_status = process_intervention(modsecTransaction.get()); // 开始监控和操作
 
     // 处理请求体
     const void *body;
@@ -43,14 +85,20 @@ void process_request(WFHttpTask *task, modsecurity::ModSecurity *modsec, modsecu
     req->get_parsed_body(&body, &body_len);
     modsecTransaction->appendRequestBody((const unsigned char *)body, body_len);
     modsecTransaction->processRequestBody(); 
-
+    intervention_status = process_intervention(modsecTransaction.get()); // 开始监控和操作
     // 类似 apisix 直接给个响应; 
     // modsecTransaction->addResponseHeader("HTTP/1.1", "200 OK");
     // modsecTransaction->processResponseHeaders(200, "HTTP 1.2");
- 
-    modsecTransaction->processLogging() ; // generate default alog 
-    resp->set_status_code("625");
-    resp->append_output_body(modsecTransaction->m_id + "\r\n");
+    if( ! intervention_status ){
+        modsecTransaction->processLogging() ; // generate default alog 
+        resp->set_status_code("200");
+        resp->append_output_body(modsecTransaction->m_id + "\r\nrequest passed.\r\n");
+        return ; 
+    }
+
+    resp->set_status_code(std::to_string(intervention_status).c_str());
+    resp->append_output_body(modsecTransaction->m_id + "\r\nrequest rejected.\r\n");
+    return ; 
 
 }
 
