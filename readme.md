@@ -39,5 +39,6 @@ make install
 ## bug 2025.1.7 --- fix (1.10)
 - 需要遇到了match - 就进行响应； 另外手动进行过滤一些； 无法脱离log做到这个内容。
     - 已解决，这里操作 transcation 对象专门有一个阻断器，intervention 这样就可以达到这个效果，【已解决】
+    - [that](https://github.com/owasp-modsecurity/ModSecurity/blob/v3/master/examples/using_bodies_in_chunks/simple_request.cc#L95-L129)
 
 
