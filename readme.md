@@ -27,9 +27,10 @@ make install
 我们用 httplib-cpp 是可以的； 但是使用 workflow就不行了。
 
 ## build 2024.12.24 transcation非独立事务时OK 【RECOMENDED】
->  g++ ./wf_waf.cpp -I /usr/local/modsecurity/include/ -L /usr/local/modsecurity/lib/ -lworkflow -lpthread -std=c++17 -lmodsecurity -O3 -g -o a.elf 
+>  g++ ./src/wf_waf.cpp -I /usr/local/modsecurity/include/ -L /usr/local/modsecurity/lib/ -lworkflow -lpthread -std=c++17 -lmodsecurity -O3 -g -o a.elf -I ./contrib/include/
 
 ![](./dcos/images/image.png)
+
 
 
 # BUG AND REPAIRE LOG

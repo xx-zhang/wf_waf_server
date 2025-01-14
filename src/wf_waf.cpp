@@ -1,4 +1,5 @@
 #include <cstddef>
+#include <memory>
 #include <string>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -20,84 +21,108 @@
 #include <modsecurity/rules_set.h>
 #include <modsecurity/transaction.h>
 
+#include "nlohmann/json.hpp"
 
 
-int process_intervention(modsecurity::Transaction *transaction) {
+nlohmann::json process_intervention(modsecurity::Transaction *transaction) {
+    nlohmann::json reason; 
+    reason["transaction_id"] = transaction->m_id; 
+
     modsecurity::ModSecurityIntervention intervention;
-    intervention.status = 200;
-    intervention.url = NULL;
-    intervention.log = NULL;
-    intervention.disruptive = 0;
-
     if (msc_intervention(transaction, &intervention) == 0) {
-        return 0;
+        // 正常通过，没有拦截
+        reason["status_code"] = 200; 
+        reason["disruptive"] = false; 
+        return reason; 
     }
 
     if (intervention.log == NULL) {
         intervention.log = strdup("(no log message was specified)");
     }
 
-    std::cout << "Log: " << intervention.log << std::endl;
+    // std::cout << "Log: " << intervention.log << std::endl;
+    reason["intervention_log"] = std::string(intervention.log) ; 
     free(intervention.log);
     intervention.log = NULL;
 
     if (intervention.url != NULL) {
-        std::cout << "Intervention, redirect to: " << intervention.url;
-        std::cout << " with status code: " << intervention.status << std::endl;
+        // std::cout << "Intervention, redirect to: " << intervention.url;
+        reason["redirect_url"] =  intervention.url ; 
+        reason["status_code"] =  302; 
+        reason["disruptive"] = false; 
+        // std::cout << " with status code: " << intervention.status << std::endl;
         free(intervention.url);
         intervention.url = NULL;
-        return intervention.status;
+        return reason;
+        // return intervention.status;
     }
 
     if (intervention.status != 200) {
-        std::cout << "Intervention, returning code: " << intervention.status;
-        std::cout << std::endl;
-        return intervention.status;
+        reason["status_code"] =  intervention.status; 
+        reason["disruptive"] = true; 
     }
 
-    return 0;
+    return reason;
 }
 
 
+// 非 block 这个逻辑是有效的可以响应任意拦截的详情，否则就似乎拦截的上下文结果。
 void process_request(WFHttpTask *task, modsecurity::ModSecurity *modsec, modsecurity::RulesSet *rules) {
     auto *req = task->get_req();
     auto *resp = task->get_resp();
-    
-    int intervention_status; 
+    resp->set_header_pair("Content-Type", "aplication/json");
+    nlohmann::json intervention_reason; 
+    bool disruptive; 
+    int status_code; 
+
     // 创建 ModSecurity 事务
     auto modsecTransaction = std::make_unique<modsecurity::Transaction>(modsec, rules, nullptr);
     modsecTransaction->processURI(req->get_request_uri(), req->get_method(), "1.1");
     std::this_thread::sleep_for(std::chrono::microseconds(5));
+    // 处理并响应 responseBody 
+    intervention_reason = process_intervention(modsecTransaction.get());
+    disruptive = intervention_reason["disruptive"].get<bool>();
+    status_code = intervention_reason["status_code"].get<int>();
+    if(disruptive) {
+        resp->set_status_code(std::to_string(status_code));
+        resp->append_output_body(intervention_reason.dump()); 
+        return; 
+    }
 
+    auto x = modsec->m_resource_collection;
     // 处理请求头
     protocol::HttpHeaderCursor cursor(req);
     std::string header_name, header_value;
     while (cursor.next(header_name, header_value)) {
-        // std::cout << header_name.c_str() << ":" << header_value.c_str() << std::endl; 
         modsecTransaction->addRequestHeader(header_name.c_str(), header_value.c_str());
     } 
     modsecTransaction->processRequestHeaders();
-    intervention_status = process_intervention(modsecTransaction.get()); // 开始监控和操作
-
+    // 处理并响应 responseBody 
+    intervention_reason = process_intervention(modsecTransaction.get());
+    disruptive = intervention_reason["disruptive"].get<bool>();
+    status_code = intervention_reason["status_code"].get<int>();
+    if(disruptive) {
+        resp->set_status_code(std::to_string(status_code));
+        resp->append_output_body(intervention_reason.dump()); 
+        return; 
+    }
     // 处理请求体
     const void *body;
     size_t body_len;
     req->get_parsed_body(&body, &body_len);
     modsecTransaction->appendRequestBody((const unsigned char *)body, body_len);
     modsecTransaction->processRequestBody(); 
-    intervention_status = process_intervention(modsecTransaction.get()); // 开始监控和操作
-    // 类似 apisix 直接给个响应; 
-    // modsecTransaction->addResponseHeader("HTTP/1.1", "200 OK");
-    // modsecTransaction->processResponseHeaders(200, "HTTP 1.2");
-    if( ! intervention_status ){
-        modsecTransaction->processLogging() ; // generate default alog 
-        resp->set_status_code("200");
-        resp->append_output_body(modsecTransaction->m_id + "\r\nrequest passed.\r\n");
-        return ; 
+    // 处理并响应 responseBody 
+    intervention_reason = process_intervention(modsecTransaction.get());
+    disruptive = intervention_reason["disruptive"].get<bool>();
+    status_code = intervention_reason["status_code"].get<int>();
+    if(disruptive) {
+        resp->set_status_code(std::to_string(status_code));
+        resp->append_output_body(intervention_reason.dump()); 
+        return; 
     }
-
-    resp->set_status_code(std::to_string(intervention_status).c_str());
-    resp->append_output_body(modsecTransaction->m_id + "\r\nrequest rejected.\r\n");
+    resp->set_status_code("200");
+    resp->append_output_body("{\"code\": 0, \"msg\": \"OK\"}"); 
     return ; 
 
 }
@@ -142,8 +167,8 @@ int main() {
     auto modsec = std::make_unique<modsecurity::ModSecurity>();
     modsec->setConnectorInformation("ModSecurity-test v0.0.1-alpha" \
         " (ModSecurity test)");
-    modsec->setServerLogCb(logCb, modsecurity::RuleMessageLogProperty
-        | modsecurity::IncludeFullHighlightLogProperty);
+    // modsec->setServerLogCb(logCb, modsecurity::RuleMessageLogProperty
+    //     | modsecurity::IncludeFullHighlightLogProperty);
 
     auto rules = std::make_unique<modsecurity::RulesSet>();
     // 加载规则文件
@@ -161,6 +186,7 @@ int main() {
 
     // 监听 8080 端口
     if (server.start(8977) == 0) {
+        std::cout << "start serer in 8977" << std::endl; 
         getchar();  // 按下任意键停止服务器
         server.stop();
     } else {
